@@ -15,7 +15,7 @@ import (
 var (
 	device = flag.String("d", camera.DefaultDevice, "webcam device location")
 	format = flag.String("f", string(camera.FormatJPEG), "webcam image capture format")
-	size   = flag.String("s", camera.Resolution720p.String(), "webcam image size")
+	size   = flag.String("s", camera.Resolution1080p.String(), "webcam image size")
 	host   = flag.String("host", "", "tapcamd host")
 )
 
