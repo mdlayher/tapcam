@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/mdlayher/tapcam/camera"
 	"github.com/pkg/sftp"
@@ -16,11 +18,16 @@ var (
 	device = flag.String("d", camera.DefaultDevice, "webcam device location")
 	format = flag.String("f", string(camera.FormatJPEG), "webcam image capture format")
 	size   = flag.String("s", camera.Resolution1080p.String(), "webcam image size")
+	delay  = flag.Int("delay", 0, "delay in seconds before taking a picture")
 	host   = flag.String("host", "", "tapcamd host")
 )
 
 func main() {
 	flag.Parse()
+
+	if *host == "" {
+		log.Fatal("must specify SFTP host")
+	}
 
 	resolution, err := camera.NewResolution(*size)
 	if err != nil {
@@ -34,6 +41,15 @@ func main() {
 	)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if d := *delay; d > 0 {
+		log.Printf("taking picture in %d seconds", d)
+		for i := 0; i < d; i++ {
+			fmt.Print(". ")
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Println()
 	}
 
 	rc, done, err := cam.Capture()
