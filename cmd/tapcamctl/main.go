@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"io/ioutil"
 	"log"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/mdlayher/tapcam/camera"
@@ -21,6 +23,10 @@ var (
 	delay  = flag.Int("delay", 0, "delay in seconds before taking a picture")
 	host   = flag.String("host", "", "tapcamd host")
 )
+
+type subImager interface {
+	SubImage(r image.Rectangle) image.Image
+}
 
 func main() {
 	flag.Parse()
@@ -57,27 +63,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c, cdone, err := sftpClient(*host, ioutil.Discard)
+	img, _, err := image.Decode(rc)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	const (
-		dir = "/tmp/tapcam"
-
-		tmpName  = "latest.tmp.jpg"
-		permName = "latest.jpg"
-	)
-
-	tmpFullName := filepath.Join(dir, tmpName)
-	permFullName := filepath.Join(dir, permName)
-
-	f, err := c.Create(tmpFullName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if _, err := io.Copy(f, rc); err != nil {
 		log.Fatal(err)
 	}
 
@@ -85,25 +72,74 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := f.Close(); err != nil {
+	crop, ok := img.(subImager)
+	if !ok {
+		log.Fatal("cannot take sub image")
+	}
+
+	bounds := img.Bounds()
+	bounds.Max = image.Point{X: 1920, Y: 100}
+
+	simg := crop.SubImage(bounds)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, simg, nil); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := c.Remove(permFullName); err != nil {
+	if err := ioutil.WriteFile("out.jpg", buf.Bytes(), 0644); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := c.Rename(tmpFullName, permFullName); err != nil {
-		log.Fatal(err)
-	}
+	/*
+		c, cdone, err := sftpClient(*host, ioutil.Discard)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err := c.Close(); err != nil {
-		log.Fatal(err)
-	}
+		const (
+			dir = "/tmp/tapcam"
 
-	if err := cdone(); err != nil {
-		log.Fatal(err)
-	}
+			tmpName  = "latest.tmp.jpg"
+			permName = "latest.jpg"
+		)
+
+		tmpFullName := filepath.Join(dir, tmpName)
+		permFullName := filepath.Join(dir, permName)
+
+		f, err := c.Create(tmpFullName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if _, err := io.Copy(f, rc); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := done(); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := c.Remove(permFullName); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := c.Rename(tmpFullName, permFullName); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := c.Close(); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := cdone(); err != nil {
+			log.Fatal(err)
+		}
+	*/
 }
 
 func sftpClient(host string, out io.Writer) (*sftp.Client, func() error, error) {
