@@ -108,9 +108,7 @@ func New(options ...Option) (*Camera, error) {
 
 // Capture captures an image stream from a camera device.
 // stream is an io.ReadCloser which contains the image stream.
-// done should be called once the stream is done being read, and may
-// return an error upon completion.
-func (c *Camera) Capture() (stream io.ReadCloser, done func() error, err error) {
+func (c *Camera) Capture() (stream io.ReadCloser, err error) {
 	return capture(
 		c.device,
 		c.format,
@@ -153,4 +151,21 @@ func SetResolution(resolution *Resolution) Option {
 		c.resolution = resolution
 		return nil
 	}
+}
+
+var _ io.ReadCloser = &readCloser{}
+
+// readCloser is a special io.ReadCloser which wraps the done function
+// created in capture, calling it after closing the wrapped io.ReadCloser.
+type readCloser struct {
+	io.ReadCloser
+	done func() error
+}
+
+func (r *readCloser) Close() error {
+	if err := r.ReadCloser.Close(); err != nil {
+		return err
+	}
+
+	return r.done()
 }

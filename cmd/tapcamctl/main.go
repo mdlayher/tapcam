@@ -48,7 +48,7 @@ func main() {
 		fmt.Println()
 	}
 
-	rc, done, err := cam.Capture()
+	rc, err := cam.Capture()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,10 +63,6 @@ func main() {
 	}
 
 	if err := rc.Close(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := done(); err != nil {
 		log.Fatal(err)
 	}
 

@@ -11,7 +11,7 @@ func capture(
 	device string,
 	format Format,
 	resolution *Resolution,
-) (io.ReadCloser, func() error, error) {
+) (io.ReadCloser, error) {
 	cmd := exec.Command(
 		"streamer",
 		"-c",
@@ -25,16 +25,19 @@ func capture(
 	)
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	wait := func() error {
+	done := func() error {
 		return cmd.Wait()
 	}
 
-	return rc, wait, nil
+	return &readCloser{
+		ReadCloser: rc,
+		done:       done,
+	}, nil
 }
