@@ -3,15 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
-	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/mdlayher/tapcam/camera"
-	"github.com/pkg/sftp"
+	"github.com/mdlayher/tapcam/tapcamclient"
 )
 
 var (
@@ -57,27 +53,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c, cdone, err := sftpClient(*host, ioutil.Discard)
+	c, err := tapcamclient.New(*host)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	const (
-		dir = "/tmp/tapcam"
-
-		tmpName  = "latest.tmp.jpg"
-		permName = "latest.jpg"
-	)
-
-	tmpFullName := filepath.Join(dir, tmpName)
-	permFullName := filepath.Join(dir, permName)
-
-	f, err := c.Create(tmpFullName)
-	if err != nil {
+	if err := c.Upload("/tmp/tapcam/latest.jpg", rc); err != nil {
 		log.Fatal(err)
 	}
 
-	if _, err := io.Copy(f, rc); err != nil {
+	if err := rc.Close(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -85,48 +70,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := f.Close(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := c.Remove(permFullName); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := c.Rename(tmpFullName, permFullName); err != nil {
-		log.Fatal(err)
-	}
-
 	if err := c.Close(); err != nil {
 		log.Fatal(err)
 	}
-
-	if err := cdone(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func sftpClient(host string, out io.Writer) (*sftp.Client, func() error, error) {
-	// Connect to a remote host and request the sftp subsystem via the 'ssh'
-	// command.  This assumes that passwordless login is correctly configured.
-	cmd := exec.Command("ssh", host, "-s", "sftp")
-	cmd.Stderr = out
-
-	wr, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-	rd, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	c, err := sftp.NewClientPipe(rd, wr)
-	return c, func() error {
-		return cmd.Wait()
-	}, err
 }
