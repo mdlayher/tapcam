@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -109,7 +110,9 @@ func (c *Client) Upload(target string, r io.Reader) error {
 		return err
 	}
 
-	if err := c.c.Remove(target); err != nil {
+	// Attempt to remove target file, but ignore error if it
+	// doesn't exist
+	if err := c.c.Remove(target); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
