@@ -4,10 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/mdlayher/tapcam/camera"
 	"github.com/mdlayher/tapcam/tapcamclient"
+)
+
+const (
+	envHost = "TAPCAMCTL_HOST"
 )
 
 var (
@@ -21,8 +26,13 @@ var (
 func main() {
 	flag.Parse()
 
-	if *host == "" {
-		log.Fatal("must specify SFTP host")
+	host := *host
+	if host == "" {
+		host = os.Getenv(envHost)
+	}
+
+	if host == "" {
+		log.Fatalf("must specify SFTP host using -host flag or $%s", envHost)
 	}
 
 	resolution, err := camera.NewResolution(*size)
@@ -53,7 +63,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c, err := tapcamclient.New(*host)
+	c, err := tapcamclient.New(host)
 	if err != nil {
 		log.Fatal(err)
 	}
