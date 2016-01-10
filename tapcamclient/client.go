@@ -4,47 +4,45 @@ package tapcamclient
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 // A Client is a client for the tapcamd service.  It currently makes use of
 // SFTP to upload images to tapcamd, but this may change in the future.
 type Client struct {
-	// Debug writer for SFTP client, ioutil.Discard by default
-	debug io.Writer
-
-	// SFTP client and function to close SSH session
-	c     *sftp.Client
-	cdone func() error
+	// SFTP client and underlying SSH connection
+	c    *sftp.Client
+	conn *ssh.Client
 }
 
 // New creates a new Client using the input host and zero or more optional
 // Option functions.
-func New(host string, options ...Option) (*Client, error) {
-	c := &Client{
-		debug: ioutil.Discard,
-	}
-
+func New(host string, config *ssh.ClientConfig, options ...Option) (*Client, error) {
+	c := new(Client)
 	for _, o := range options {
 		if err := o(c); err != nil {
 			return nil, err
 		}
 	}
 
-	sftpc, cdone, err := newClient(host, c.debug)
+	conn, err := ssh.Dial("tcp", host, config)
+	if err != nil {
+		return nil, err
+	}
+
+	sftpc, err := sftp.NewClient(conn)
 	if err != nil {
 		return nil, err
 	}
 
 	c.c = sftpc
-	c.cdone = cdone
+	c.conn = conn
 
 	return c, nil
 }
@@ -52,38 +50,13 @@ func New(host string, options ...Option) (*Client, error) {
 // An Option is a function which can apply configuration to a Client.
 type Option func(c *Client) error
 
-// newClient establishes SSH and SFTP connections to the specified host.
-// TODO(mdlayher): use x/crypto/ssh directly instead of shelling out.
-func newClient(host string, out io.Writer) (*sftp.Client, func() error, error) {
-	cmd := exec.Command("ssh", host, "-s", "sftp")
-	cmd.Stderr = out
-
-	wr, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-	rd, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	c, err := sftp.NewClientPipe(rd, wr)
-	return c, func() error {
-		return cmd.Wait()
-	}, err
-}
-
 // Close closes the Client's internal network connections.
 func (c *Client) Close() error {
 	if err := c.c.Close(); err != nil {
 		return err
 	}
 
-	return c.cdone()
+	return c.conn.Close()
 }
 
 // Upload uploads a file to the target location from an input io.Reader.

@@ -3,16 +3,20 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
 	"github.com/mdlayher/tapcam/camera"
 	"github.com/mdlayher/tapcam/tapcamclient"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
-	envHost = "TAPCAMCTL_HOST"
+	envHost    = "TAPCAMCTL_HOST"
+	envUser    = "TAPCAMCTL_USER"
+	envKeyFile = "TAPCAMCTL_KEY"
 )
 
 var (
@@ -20,19 +24,37 @@ var (
 	format = flag.String("f", string(camera.FormatJPEG), "webcam image capture format")
 	size   = flag.String("s", camera.Resolution1080p.String(), "webcam image size")
 	delay  = flag.Int("delay", 0, "delay in seconds before taking a picture")
-	host   = flag.String("host", "", "tapcamd host")
+
+	host    = flag.String("host", "", "tapcamd host")
+	user    = flag.String("user", "", "tapcamd SSH user")
+	keyFile = flag.String("key", "", "tapcamd SSH private key file")
 )
 
 func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	flag.Parse()
 
-	host := *host
-	if host == "" {
-		host = os.Getenv(envHost)
+	host, user, keyFile, err := checkFlags(*host, *user, *keyFile)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if host == "" {
-		log.Fatalf("must specify SFTP host using -host flag or $%s", envHost)
+	keyBytes, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	private, err := ssh.ParsePrivateKey(keyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tcc, err := tapcamclient.New(host, &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{ssh.PublicKeys(private)},
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	resolution, err := camera.NewResolution(*size)
@@ -63,12 +85,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c, err := tapcamclient.New(host)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := c.Upload("/tmp/tapcam/latest.jpg", rc); err != nil {
+	if err := tcc.Upload("/tmp/tapcam/latest.jpg", rc); err != nil {
 		log.Fatal(err)
 	}
 
@@ -76,7 +93,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := c.Close(); err != nil {
+	if err := tcc.Close(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func checkFlags(host string, user string, keyFile string) (string, string, string, error) {
+	if host == "" {
+		host = os.Getenv(envHost)
+	}
+	if host == "" {
+		return "", "", "", fmt.Errorf("must specify SFTP host using -host flag or $%s", envHost)
+	}
+
+	if user == "" {
+		user = os.Getenv(envUser)
+	}
+	if user == "" {
+		return "", "", "", fmt.Errorf("must specify SFTP user using -user flag or $%s", envUser)
+	}
+
+	if keyFile == "" {
+		keyFile = os.Getenv(envKeyFile)
+	}
+	if keyFile == "" {
+		return "", "", "", fmt.Errorf("must specify SFTP private key file using -key flag or $%s", envKeyFile)
+	}
+
+	return host, user, keyFile, nil
 }
