@@ -8,14 +8,14 @@ import (
 )
 
 var (
-	host = flag.String("h", ":80", "host address for HTTP server")
+	host = flag.String("host", ":80", "host address for HTTP server")
 	dir  = flag.String("d", "/tmp/tapcam", "directory for image storage")
 )
 
 func main() {
 	flag.Parse()
 
-	if err := os.MkdirAll(*dir, 0644); err != nil {
+	if err := os.MkdirAll(*dir, 0755); err != nil {
 		log.Fatal(err)
 	}
 
