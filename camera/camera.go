@@ -43,7 +43,7 @@ type Resolution struct {
 	Y int
 }
 
-// Parse parses a resolution string in the format "XXXxYYY".
+// NewResolution creates a Resolution from a string in the format "XXXxYYY".
 func NewResolution(res string) (*Resolution, error) {
 	ss := strings.Split(res, "x")
 	if len(ss) != 2 {
