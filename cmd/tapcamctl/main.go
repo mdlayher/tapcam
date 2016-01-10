@@ -3,14 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
 	"github.com/mdlayher/tapcam/camera"
 	"github.com/mdlayher/tapcam/tapcamclient"
-	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -39,20 +37,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	keyBytes, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	private, err := ssh.ParsePrivateKey(keyBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tcc, err := tapcamclient.New(host, &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(private)},
-	})
+	tcc, err := tapcamclient.New(
+		host,
+		tapcamclient.SSHUserKeyFile(user, keyFile),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

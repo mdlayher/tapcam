@@ -4,6 +4,7 @@ package tapcamclient
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,11 +20,18 @@ type Client struct {
 	// SFTP client and underlying SSH connection
 	c    *sftp.Client
 	conn *ssh.Client
+
+	// SSH credentials
+	sshUser string
+	sshKey  ssh.Signer
 }
 
 // New creates a new Client using the input host and zero or more optional
 // Option functions.
-func New(host string, config *ssh.ClientConfig, options ...Option) (*Client, error) {
+//
+// At a minimum, the SSHUserKeyFile Option must be specified to allow
+// authentication and image upload.
+func New(host string, options ...Option) (*Client, error) {
 	c := new(Client)
 	for _, o := range options {
 		if err := o(c); err != nil {
@@ -31,7 +39,10 @@ func New(host string, config *ssh.ClientConfig, options ...Option) (*Client, err
 		}
 	}
 
-	conn, err := ssh.Dial("tcp", host, config)
+	conn, err := ssh.Dial("tcp", host, &ssh.ClientConfig{
+		User: c.sshUser,
+		Auth: []ssh.AuthMethod{ssh.PublicKeys(c.sshKey)},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +60,26 @@ func New(host string, config *ssh.ClientConfig, options ...Option) (*Client, err
 
 // An Option is a function which can apply configuration to a Client.
 type Option func(c *Client) error
+
+// SSHUserKeyFile configures a Client to use an SSH username and private
+// key file to authenticate against a tapcamd server.
+func SSHUserKeyFile(user string, keyFile string) Option {
+	return func(c *Client) error {
+		keyBytes, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			return err
+		}
+
+		private, err := ssh.ParsePrivateKey(keyBytes)
+		if err != nil {
+			return err
+		}
+
+		c.sshUser = user
+		c.sshKey = private
+		return nil
+	}
+}
 
 // Close closes the Client's internal network connections.
 func (c *Client) Close() error {
