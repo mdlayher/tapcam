@@ -77,10 +77,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := rc.Close(); err != nil {
-		log.Fatal(err)
-	}
-
 	if err := tcc.Close(); err != nil {
 		log.Fatal(err)
 	}

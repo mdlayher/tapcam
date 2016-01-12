@@ -91,6 +91,7 @@ func (c *Client) Close() error {
 }
 
 // Upload uploads a file to the target location from an input io.Reader.
+// If r is an io.Closer, it is automatically closed once the upload completes.
 func (c *Client) Upload(target string, r io.Reader) error {
 	target = filepath.Clean(target)
 
@@ -112,6 +113,13 @@ func (c *Client) Upload(target string, r io.Reader) error {
 
 	if err := f.Close(); err != nil {
 		return err
+	}
+
+	// Close r if it is an io.Closer.
+	if c, ok := r.(io.Closer); ok {
+		if err := c.Close(); err != nil {
+			return err
+		}
 	}
 
 	// Attempt to remove target file, but ignore error if it
