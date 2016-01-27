@@ -35,6 +35,7 @@ func main() {
 		mux := http.NewServeMux()
 		mux.Handle("/", http.FileServer(http.Dir(*imageDir)))
 
+		log.Printf("starting HTTP server at %q", *httpHost)
 		if err := http.ListenAndServe(*httpHost, mux); err != nil {
 			log.Fatal(err)
 		}
@@ -57,6 +58,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("starting SFTP server at %q", *sftpHost)
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
@@ -85,9 +87,13 @@ func publicKeyAuth(user string, file string) (publicKeyAuthFunc, error) {
 		) == 1
 
 		if userOK && keyOK {
+			log.Printf("accepted authentication for user %q at %q",
+				conn.User(), conn.RemoteAddr().String())
 			return nil, nil
 		}
 
+		log.Printf("rejected authentication for user %q at %q",
+			conn.User(), conn.RemoteAddr().String())
 		return nil, fmt.Errorf("pubkey for %q not acceptable", conn.User())
 	}, nil
 }
