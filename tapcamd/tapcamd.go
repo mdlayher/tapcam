@@ -90,9 +90,6 @@ func (s *Server) ListenAndServe() error {
 			server, err := sftp.NewServer(
 				channel,
 				channel,
-				// TODO(mdlayher): this option does nothing, and will be
-				// removed in a PR to github.com/pkg/sftp
-				"/",
 			)
 			if err != nil {
 				return err
