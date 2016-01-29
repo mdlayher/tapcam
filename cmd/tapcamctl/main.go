@@ -75,7 +75,7 @@ func main() {
 	}
 
 	if d := *delay; d > 0 {
-		log.Printf("taking picture in %d seconds", d)
+		log.Printf("capturing image in %d seconds", d)
 		for i := 0; i < d; i++ {
 			fmt.Print(". ")
 			time.Sleep(1 * time.Second)
@@ -83,12 +83,16 @@ func main() {
 		fmt.Println()
 	}
 
+	log.Println("capturing image with camera")
+
 	rc, err := cam.Capture()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if !config.invert {
+		log.Println("uploading image to server")
+
 		if err := tcc.Upload(config.target, rc); err != nil {
 			log.Fatal(err)
 		}
@@ -97,8 +101,11 @@ func main() {
 			log.Fatal(err)
 		}
 
+		log.Println("done!")
 		return
 	}
+
+	log.Println("inverting image before upload")
 
 	img, _, err := image.Decode(rc)
 	if err != nil {
@@ -117,6 +124,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Println("uploading image to server")
+
 	if err := tcc.Upload(config.target, &buf); err != nil {
 		log.Fatal(err)
 	}
@@ -124,6 +133,8 @@ func main() {
 	if err := tcc.Close(); err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("done!")
 }
 
 type config struct {
